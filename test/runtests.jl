@@ -295,13 +295,9 @@ import JuliaAPL: ≡, ≢  # resolve ambiguity with Base.≡ (===) and Base.≢
 end # @testset "JuliaAPL"
 
 # Run property-based tests if Supposition.jl is available
-if haskey(Base.loaded_modules, Base.PkgId(Base.UUID("5a0628fe-1370-4cba-a1f9-24f9bde67092"), "Supposition"))
+try
+    @eval using Supposition
     include("property_tests.jl")
-else
-    try
-        @eval using Supposition
-        include("property_tests.jl")
-    catch
-        @info "Supposition.jl not available — skipping property-based tests"
-    end
+catch
+    @info "Supposition.jl not available — skipping property-based tests"
 end

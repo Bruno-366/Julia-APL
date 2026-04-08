@@ -103,7 +103,7 @@ _apl_ravel(A::AbstractArray) = vec(permutedims(A, reverse(1:ndims(A))))
 # APL's row-major (last-axis-varies-fastest) fill order.
 function _apl_reshape(data::AbstractVector, shape::AbstractVector{<:Integer})
     N = length(shape)
-    isempty(data) && throw(ArgumentError("cannot reshape empty data"))
+    isempty(data) && throw(ArgumentError("cannot reshape: data array is empty (provide at least one element)"))
     N == 0 && return first(data)
     n    = prod(shape)
     flat = collect(Iterators.take(Iterators.cycle(data), n))
