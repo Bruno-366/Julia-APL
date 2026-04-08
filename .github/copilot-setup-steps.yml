@@ -4,7 +4,7 @@ steps:
       julia -e '
         import Pkg
         Pkg.add([
-          Pkg.PackageSpec(name="Supposition", uuid="5a0628fe-1370-4cba-a1f9-24f9bde67092"),
+          Pkg.PackageSpec(name="Supposition", uuid="5a0628fe-1738-4658-9b6d-0b7605a9755b"),
           Pkg.PackageSpec(name="Documenter",  uuid="e30172f5-a6a5-5a46-863b-614d45cd2de4"),
         ])
       '
