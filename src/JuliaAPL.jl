@@ -491,7 +491,7 @@ left to right.
 ```julia
 apl_reduce(+)([1,2,3,4])   # 10
 apl_reduce(*)([1,2,3,4])   # 24
-apl_reduce(max)([3,1,4,1]) # 4
+apl_reduce(max)([3,1,4,1,5]) # 5
 ```
 """
 apl_reduce(f) = A -> reduce(f, A)
@@ -562,9 +562,9 @@ and `*` with `g`.
 
 # Examples
 ```julia
-apl_inner(+, *)([1,2,3], [4,5,6])   # dot product = 32
-apl_inner(+, *)([1 2; 3 4], [1 0; 0 1])  # matrix multiply
-apl_inner(max, +)([1,2], [3,4,5])   # [max(1+3,2+4), max(1+4,2+5), max(1+5,2+6)]
+apl_inner(+, *)([1,2,3], [4,5,6])         # dot product = 32
+apl_inner(+, *)([1 2; 3 4], [1 0; 0 1])   # matrix multiply (result = [1 2; 3 4])
+apl_inner(max, +)([1,2], [3,4])           # max(1+3, 2+4) = 6  (vectors must be same length)
 ```
 """
 function apl_inner(f, g)
