@@ -39,27 +39,30 @@ export apl_reduce, apl_scan, apl_each, apl_outer, apl_inner
 """
     ⍳(n) -> Vector{Int}
     ⍳(A, b) -> Int
-    ⍳(A, B) -> Vector{Int}
+    ⍳(A, B) -> Array
 
 **Monadic** `⍳n`: generate the integer vector `[1, 2, …, n]`.
 
-**Dyadic** `A ⍳ b`: return the 1-based index of the first occurrence of `b`
-in `A`, or `length(A) + 1` if `b` is not present (APL convention).
+**Dyadic** `⍳(A, b)`: return the 1-based position of the first occurrence of
+`b` in the APL ravel (row-major) of `A`, or `length(A) + 1` if not present.
 
-**Dyadic** `A ⍳ B`: apply the dyadic form element-wise to each element of `B`.
+**Dyadic** `⍳(A, B)`: apply element-wise to `B`, preserving `B`'s shape.
 
 # Examples
 ```julia
-⍳(5)                  # [1, 2, 3, 4, 5]
-[10,20,30] ⍳ 20       # 2
-[10,20,30] ⍳ 99       # 4  (not found → length+1)
-[10,20,30] ⍳ [20,30]  # [2, 3]
+⍳(5)                       # [1, 2, 3, 4, 5]
+⍳([10,20,30], 20)          # 2  (1-based position)
+⍳([10,20,30], 99)          # 4  (not found → length+1)
+⍳([10,20,30], [20,30])     # [2, 3]
 ```
 """
 ⍳(n::Integer) = collect(1:n)
 ⍳(A::AbstractArray, b) =
-    let idx = findfirst(==(b), vec(A)); isnothing(idx) ? length(A) + 1 : idx end
-⍳(A::AbstractArray, B::AbstractArray) = [⍳(A, b) for b in B]
+    let rv = _apl_ravel(A)
+        idx = findfirst(==(b), rv)
+        isnothing(idx) ? length(rv) + 1 : idx
+    end
+⍳(A::AbstractArray, B::AbstractArray) = map(b -> ⍳(A, b), B)
 
 # ============================================================
 # ⍴  Rho  —  shape (monadic) / reshape (dyadic)
@@ -86,20 +89,25 @@ given shape.  `shape` may be a vector of integers or a single integer.
 """
 ⍴(A::AbstractArray) = collect(size(A))
 ⍴(A::Number) = Int[]
-⍴(shape::AbstractVector{<:Integer}, A::AbstractArray) = _apl_reshape(vec(A), shape)
+⍴(shape::AbstractVector{<:Integer}, A::AbstractArray) = _apl_reshape(_apl_ravel(A), shape)
 ⍴(shape::AbstractVector{<:Integer}, A::Number) = fill(A, shape...)
 ⍴(n::Integer, A::AbstractArray) =
-    collect(Iterators.take(Iterators.cycle(vec(A)), n))
+    collect(Iterators.take(Iterators.cycle(_apl_ravel(A)), n))
 ⍴(n::Integer, A::Number) = fill(A, n)
+
+# Internal: ravel an array in APL's row-major (last-axis-varies-fastest) order.
+_apl_ravel(A::AbstractVector) = collect(A)
+_apl_ravel(A::AbstractArray) = vec(permutedims(A, reverse(1:ndims(A))))
 
 # Internal: reshape data (cycling as needed) into the given shape using
 # APL's row-major (last-axis-varies-fastest) fill order.
 function _apl_reshape(data::AbstractVector, shape::AbstractVector{<:Integer})
-    N   = length(shape)
-    n   = prod(shape)
+    N = length(shape)
+    isempty(data) && throw(ArgumentError("cannot reshape empty data"))
+    N == 0 && return first(data)
+    n    = prod(shape)
     flat = collect(Iterators.take(Iterators.cycle(data), n))
     N == 1 && return flat
-    N == 0 && return first(flat)
     # Julia reshape is column-major; APL fill is row-major.
     # Trick: reshape into reversed-shape, then permute axes back.
     tmp = reshape(flat, reverse(shape)...)
@@ -137,17 +145,20 @@ M ⌹ [1.0, 2.0]  # solve M*x = [1,2]
     ⍉(A) -> Array
     ⍉(perm, A) -> Array
 
-**Monadic** `⍉A`: reverse the axis order (ordinary matrix transpose for 2-D).
+**Monadic** `⍉A`: reverse the axis order.  For a 2-D matrix this is the
+ordinary transpose.  For a 1-D vector reversing axis order is a no-op and
+returns a copy.
 
-**Dyadic** `perm ⍉ A`: permute the axes of `A` according to `perm`.
+**Dyadic** `⍉(perm, A)`: permute the axes of `A` according to `perm`.
 
 # Examples
 ```julia
-⍉([1 2 3; 4 5 6])           # transpose → 3×2 matrix
-[2,1,3] ⍉ rand(2,3,4)       # permute axes of a 3-D array
+⍉([1 2 3; 4 5 6])              # 3×2 transpose
+⍉([1, 2, 3])                   # [1, 2, 3]  (1-D no-op)
+⍉([2,1,3], rand(2,3,4))        # permute axes of a 3-D array
 ```
 """
-⍉(A::AbstractVector) = reshape(A, 1, :)
+⍉(A::AbstractVector) = copy(A)   # reversing axis order of a 1-D array is a no-op
 ⍉(A::AbstractMatrix) = collect(transpose(A))
 ⍉(A::AbstractArray) = permutedims(A, reverse(1:ndims(A)))
 ⍉(perm::AbstractVector{<:Integer}, A::AbstractArray) = permutedims(A, perm)
@@ -205,6 +216,8 @@ Return the permutation vector that sorts `A` in **descending** order (1-based).
 ⌽(A::AbstractArray) = reverse(A, dims=ndims(A))
 ⌽(n::Integer, A::AbstractVector) = circshift(A, -n)
 ⌽(n::Integer, A::AbstractMatrix) = circshift(A, (0, -n))
+⌽(n::Integer, A::AbstractArray) =
+    circshift(A, ntuple(d -> d == ndims(A) ? -n : 0, ndims(A)))
 
 # ============================================================
 # ⊖  Rotate/Reverse (first axis)
@@ -229,6 +242,8 @@ Return the permutation vector that sorts `A` in **descending** order (1-based).
 ⊖(A::AbstractArray) = reverse(A, dims=1)
 ⊖(n::Integer, A::AbstractVector) = circshift(A, -n)
 ⊖(n::Integer, A::AbstractMatrix) = circshift(A, (-n, 0))
+⊖(n::Integer, A::AbstractArray) =
+    circshift(A, ntuple(d -> d == 1 ? -n : 0, ndims(A)))
 
 # ============================================================
 # ∊  Epsilon  —  enlist/flatten (monadic) / membership (dyadic)
@@ -236,31 +251,23 @@ Return the permutation vector that sorts `A` in **descending** order (1-based).
 
 """
     ∊(A) -> Vector
-    ∊(A, B) -> BitVector
-    A ∊ B  -> BitVector
+    ∊(A, B) -> Array{Bool}
+    A ∊ B  -> Array{Bool}
 
-**Monadic** `∊A`: flatten `A` into a 1-D vector (enlist).
+**Monadic** `∊A`: flatten `A` into a 1-D vector in APL row-major order.
 
-**Dyadic** `A ∊ B`: return a boolean array with `true` for each element of
-`A` that appears in `B`.
+**Dyadic** `A ∊ B`: return a boolean array with the same shape as `A`, with
+`true` at each position where the corresponding element of `A` appears in `B`.
 
 # Examples
 ```julia
-∊([1 2; 3 4])        # [1,2,3,4]
-[1,2,3,4] ∊ [2,4]   # [false,true,false,true]
+∊([1 2; 3 4])               # [1,2,3,4]  (row-major flatten)
+[1,2,3,4] ∊ [2,4]           # [false,true,false,true]
+[1 2; 3 4] ∊ [2,4]          # Bool[false true; false true]  (preserves shape)
 ```
 """
 ∊(A::AbstractArray) = _apl_ravel(A)
-∊(A::AbstractArray, B::AbstractArray) = [x in B for x in A]
-
-# Internal: flatten A in APL's row-major (last-axis-varies-fastest) order.
-function _apl_ravel(A::AbstractArray)
-    N = ndims(A)
-    N <= 1 && return collect(A)
-    # permutedims reverses axis order, then vec reads in column-major which
-    # corresponds to row-major of the original.
-    vec(permutedims(A, reverse(1:N)))
-end
+∊(A::AbstractArray, B::AbstractArray) = in.(A, Ref(B))
 
 # ============================================================
 # ↑  Take  /  ↓  Drop
@@ -380,23 +387,25 @@ end
     ≡(A, B) -> Bool
 
 **Monadic** `≡A`: return the nesting depth of `A`.  A simple (non-nested)
-array has depth 1; a scalar has depth 0.
+array has depth 1; a scalar or any non-array atom has depth 0.
 
-**Dyadic** `A ≡ B`: test structural equality (`==`).
+**Dyadic** `A ≡ B`: test structural equality using `isequal` (same as Julia's
+`isequal`; treats `NaN == NaN` and `missing == missing` as true).
 
 # Examples
 ```julia
 ≡([1,2,3])                  # 1
 ≡([[1,2],[3,4]])             # 2
+≡("hello")                  # 0  (any non-array is depth 0)
 [1,2,3] ≡ [1,2,3]           # true
 [1,2,3] ≡ [1,2,4]           # false
 ```
 """
 ≡(A::AbstractArray) = _depth(A)
-≡(A::Number) = 0
+≡(A) = 0
 ≡(A, B) = isequal(A, B)
 
-_depth(::Number) = 0
+_depth(::Any) = 0
 _depth(A::AbstractArray) =
     isempty(A) ? 1 : 1 + maximum(_depth(a) for a in A)
 
@@ -407,7 +416,8 @@ _depth(A::AbstractArray) =
 **Monadic** `≢A`: tally — return the length of the first dimension of `A`
 (equivalent to `size(A,1)`).  Returns 1 for a scalar.
 
-**Dyadic** `A ≢ B`: test structural non-equality (`!=(A,B)`).
+**Dyadic** `A ≢ B`: test structural non-equality using `isequal` (negation of
+`≡`).
 
 # Examples
 ```julia

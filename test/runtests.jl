@@ -19,6 +19,13 @@ import JuliaAPL: ≡, ≢  # resolve ambiguity with Base.≡ (===) and Base.≢
         # dyadic: index of a vector
         @test ⍳([10, 20, 30], [20, 30]) == [2, 3]
         @test ⍳([10, 20, 30], [99, 10]) == [4, 1]
+
+        # dyadic: matrix left-arg uses APL row-major ravel order; result preserves B's shape
+        A = [10 20; 30 40]
+        B = [40 10; 99 30]
+        result = ⍳(A, B)
+        @test result == [4 1; 5 3]
+        @test size(result) == size(B)
     end
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -42,6 +49,11 @@ import JuliaAPL: ≡, ≢  # resolve ambiguity with Base.≡ (===) and Base.≢
 
         # dyadic: cycling (APL wraps around)
         @test ⍴([2, 4], [1, 2, 3]) == [1 2 3 1; 2 3 1 2]
+
+        # dyadic: reshaping a 2-D source uses APL row-major ravel order
+        src2d = [1 2 3; 4 5 6]
+        @test ⍴(6, src2d)       == [1, 2, 3, 4, 5, 6]
+        @test ⍴([3, 2], src2d)  == [1 2; 3 4; 5 6]
     end
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -67,9 +79,10 @@ import JuliaAPL: ≡, ≢  # resolve ambiguity with Base.≡ (===) and Base.≢
         @test ⍉(A) == [1 4; 2 5; 3 6]
         @test size(⍉(A)) == (3, 2)
 
-        # monadic: vector → row vector (1×n)
+        # monadic: vector transpose is a no-op (returns a copy)
         v = [1, 2, 3]
-        @test size(⍉(v)) == (1, 3)
+        @test ⍉(v) == v
+        @test size(⍉(v)) == (3,)
 
         # dyadic: permute axes of 3-D array (function-call syntax, ⍉ is not infix in Julia)
         T = reshape(1:24, 2, 3, 4)
@@ -124,9 +137,12 @@ import JuliaAPL: ≡, ≢  # resolve ambiguity with Base.≡ (===) and Base.≢
         # monadic: flatten
         @test ∊(A) == [1, 2, 3, 4]
 
-        # dyadic: membership
+        # dyadic: membership (vector inputs)
         @test ([1, 2, 3, 4] ∊ [2, 4]) == [false, true, false, true]
         @test ([5, 6] ∊ [1, 2, 3])    == [false, false]
+
+        # dyadic: membership preserves A's shape (matrix input)
+        @test (A ∊ [2, 4]) == Bool[false true; false true]
     end
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -174,6 +190,7 @@ import JuliaAPL: ≡, ≢  # resolve ambiguity with Base.≡ (===) and Base.≢
     # ─────────────────────────────────────────────────────────────────────────
     @testset "≡  depth / match" begin
         @test ≡(42)            == 0
+        @test ≡("hello")       == 0   # any non-array atom has depth 0
         @test ≡([1, 2, 3])     == 1
         @test ≡([[1, 2], [3]])  == 2
 
