@@ -1,0 +1,5 @@
+[deps]
+Supposition = "5a0628fe-1370-4cba-a1f9-24f9bde67092"
+
+[compat]
+julia = "1.9"

@@ -6,13 +6,6 @@ version = "0.1.0"
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
-[extras]
-Supposition = "5a0628fe-1370-4cba-a1f9-24f9bde67092"
-Test = "8dfed614-e22c-358a-6c5b-ecca3b891a1e"
-
-[targets]
-test = ["Test", "Supposition"]
-
 [compat]
 julia = "1.9"
 
